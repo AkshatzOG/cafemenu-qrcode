@@ -6,7 +6,7 @@ a **demo payment screen (no real gateway connected — see Known Limitations)**.
 Staff manage orders, menu, and tables from `admin.html`.
 
 ## LIVE Demo -
-[Admin Page/Owner's Page](https://cafemenu-qrcode.pages.dev/)
+https://cafemenu-qrcode.pages.dev/
 
 ## Setup (one-time)
 
