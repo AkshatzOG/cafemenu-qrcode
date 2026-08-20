@@ -5,6 +5,9 @@ QR code, browse the menu, customize items, add to cart, and check out through
 a **demo payment screen (no real gateway connected — see Known Limitations)**.
 Staff manage orders, menu, and tables from `admin.html`.
 
+## LIVE Demo -
+[Admin Page/Owner's Page](https://cafemenu-qrcode.pages.dev/)
+
 ## Setup (one-time)
 
 1. **Create a Supabase project** at supabase.com (or reuse an existing one —

@@ -50,6 +50,8 @@ create table if not exists orders (
     check (status in ('pending','preparing','ready','served','cancelled')),
   payment_status text not null default 'unpaid'
     check (payment_status in ('unpaid','paid')),
+  payment_method text default 'cash'
+    check (payment_method in ('cash','upi','card')),
   subtotal numeric(10,2) not null default 0,
   total numeric(10,2) not null default 0,
   customer_note text default '',
@@ -123,6 +125,9 @@ create policy "admin manage tables" on tables for all
 drop policy if exists "admin update orders" on orders;
 create policy "admin update orders" on orders for update using (auth.role() = 'authenticated');
 
+drop policy if exists "admin delete orders" on orders;
+create policy "admin delete orders" on orders for delete using (auth.role() = 'authenticated');
+
 -- ── Realtime ─────────────────────────────────────────────────────────────
 alter publication supabase_realtime add table orders;
 alter publication supabase_realtime add table order_items;
@@ -131,3 +136,15 @@ alter publication supabase_realtime add table order_items;
 insert into categories (name, sort_order) values
   ('Starters', 1), ('Mains', 2), ('Drinks', 3)
 on conflict do nothing;
+
+-- ══════════════════════════════════════════════════════════════════════════
+-- MIGRATION — run ONLY this section if you already executed the schema
+-- above in a previous session. Safe to re-run (uses if-not-exists / drop-
+-- and-recreate patterns). Paste into Supabase → SQL Editor → Run.
+-- ══════════════════════════════════════════════════════════════════════════
+
+alter table orders add column if not exists payment_method text default 'cash'
+  check (payment_method in ('cash','upi','card'));
+
+drop policy if exists "admin delete orders" on orders;
+create policy "admin delete orders" on orders for delete using (auth.role() = 'authenticated');

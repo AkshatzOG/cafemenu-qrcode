@@ -122,6 +122,9 @@
   .pay-row { display: flex; gap: 10px; }
   .pay-row > .pay-field { flex: 1; }
   .demo-badge { background: rgba(242,183,5,0.12); color: var(--accent); border: 1px solid rgba(242,183,5,0.3); border-radius: 6px; padding: 8px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; margin-bottom: 16px; line-height: 1.5; }
+  .method-options { display: flex; flex-direction: column; gap: 10px; }
+  .method-btn { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; color: var(--text); font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; text-align: left; cursor: pointer; }
+  .method-btn:hover { border-color: var(--accent); }
 
   /* Order status */
   .status-screen { text-align: center; padding: 40px 24px; }
@@ -368,7 +371,7 @@ function renderCartSheet() {
         <textarea class="note-field" id="order-note" placeholder="Notes for the kitchen (optional) — e.g. no onions"></textarea>
         <div class="totals-row"><span>Subtotal</span><span>₹${subtotal.toFixed(0)}</span></div>
         <div class="totals-row grand"><span>Total</span><span>₹${subtotal.toFixed(0)}</span></div>
-        <button class="confirm-btn" id="checkout-btn" style="margin-top:14px;">Proceed to payment</button>
+        <button class="confirm-btn" id="checkout-btn" style="margin-top:14px;">Place order</button>
       ` : ''}
     </div>`;
 
@@ -377,7 +380,7 @@ function renderCartSheet() {
   document.querySelectorAll('.cart-item .minus').forEach(b => b.addEventListener('click', () => changeQty(b.dataset.key, -1)));
   document.querySelectorAll('.cart-item .remove-btn').forEach(b => b.addEventListener('click', () => removeItem(b.dataset.key)));
   const checkoutBtn = document.getElementById('checkout-btn');
-  if (checkoutBtn) checkoutBtn.addEventListener('click', () => openPaymentSheet(subtotal));
+  if (checkoutBtn) checkoutBtn.addEventListener('click', () => openMethodSheet(subtotal));
 }
 
 function renderCartItem(c) {
@@ -427,52 +430,61 @@ function updateCartBar() {
   }
 }
 
-function openPaymentSheet(total) {
+// Payment method is just a record of how the table intends to settle up —
+// most cafés bill at the end of the meal, not per order. Choosing a method
+// here does NOT gate order placement; the kitchen gets the order immediately
+// either way. Staff mark it paid later, at the counter, when money actually
+// changes hands.
+function openMethodSheet(total) {
   const overlay = document.getElementById('overlay');
   overlay.innerHTML = `
     <div class="sheet">
       <div class="sheet-header">
-        <div class="sheet-title">Payment</div>
-        <button class="sheet-close" id="close-pay">✕</button>
+        <div class="sheet-title">How will you pay?</div>
+        <button class="sheet-close" id="close-method">✕</button>
       </div>
-      <div class="demo-badge">⚠ Demo checkout — no real payment gateway is connected. No money moves. This screen exists to complete the ordering flow for the prototype.</div>
-      <div class="pay-field">
-        <label>Card number</label>
-        <input type="text" placeholder="4242 4242 4242 4242" maxlength="19" id="pay-card">
+      <div class="demo-badge">Your order goes to the kitchen right away. Settle up with staff whenever suits you — no payment is taken through this screen.</div>
+      <div class="method-options">
+        <button class="method-btn" data-method="cash">💵 Cash at counter</button>
+        <button class="method-btn" data-method="upi">📱 UPI at counter</button>
+        <button class="method-btn" data-method="card">💳 Card at counter</button>
       </div>
-      <div class="pay-row">
-        <div class="pay-field"><label>Expiry</label><input type="text" placeholder="MM/YY" maxlength="5" id="pay-exp"></div>
-        <div class="pay-field"><label>CVV</label><input type="text" placeholder="123" maxlength="3" id="pay-cvv"></div>
-      </div>
-      <button class="confirm-btn" id="pay-btn">Pay ₹${total.toFixed(0)}</button>
     </div>`;
-  document.getElementById('close-pay').addEventListener('click', closeSheet);
-  document.getElementById('pay-btn').addEventListener('click', () => submitOrder(total));
+  document.getElementById('close-method').addEventListener('click', closeSheet);
+  overlay.querySelectorAll('.method-btn').forEach(btn => {
+    btn.addEventListener('click', () => submitOrder(total, btn.dataset.method));
+  });
 }
 
-async function submitOrder(total) {
+async function submitOrder(total, paymentMethod) {
   const overlay = document.getElementById('overlay');
-  overlay.querySelector('.sheet').innerHTML = `
-    <div style="text-align:center; padding: 30px 0;">
-      <div class="spinner"></div>
-      <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);">Processing payment (demo)…</div>
-    </div>`;
-
   const note = document.getElementById('order-note')?.value || '';
 
-  await new Promise(r => setTimeout(r, 1400)); // simulated processing delay
+  overlay.querySelector('.sheet').innerHTML = `
+    <div class="sheet-header"><div></div><button class="sheet-close" id="close-placing">✕</button></div>
+    <div style="text-align:center; padding: 20px 0;">
+      <div class="spinner"></div>
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);">Sending your order to the kitchen…</div>
+    </div>`;
+  document.getElementById('close-placing').addEventListener('click', closeSheet);
 
   const { data: order, error: orderErr } = await supabase.from('orders').insert({
     table_id: tableRow.id,
     status: 'pending',
-    payment_status: 'paid',
+    payment_status: 'unpaid',
+    payment_method: paymentMethod,
     subtotal: total,
     total: total,
     customer_note: note
   }).select().single();
 
   if (orderErr || !order) {
-    overlay.querySelector('.sheet').innerHTML = `<div class="error-screen">Something went wrong placing your order. Please try again or tell staff.</div>`;
+    overlay.querySelector('.sheet').innerHTML = `
+      <div class="sheet-header"><div class="sheet-title">Order failed</div><button class="sheet-close" id="close-error">✕</button></div>
+      <div class="error-screen" style="padding: 20px 0;">Something went wrong placing your order.<br>Please try again or flag down staff.</div>
+      <button class="confirm-btn" id="retry-order-btn">Try again</button>`;
+    document.getElementById('close-error').addEventListener('click', closeSheet);
+    document.getElementById('retry-order-btn').addEventListener('click', () => submitOrder(total, paymentMethod));
     console.error(orderErr);
     return;
   }
@@ -504,6 +516,18 @@ function showOrderStatus(orderId) {
   const labels = { pending: 'Received', preparing: 'Preparing', ready: 'Ready', served: 'Served' };
 
   function render(status) {
+    if (status === 'cancelled') {
+      app.innerHTML = `
+        <div class="status-screen">
+          <div class="status-icon" style="background:rgba(229,72,77,0.15); color:var(--danger);">✕</div>
+          <div style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px;">Order cancelled</div>
+          <div style="color:var(--text-dim); font-size:13px; margin-top:4px;">Staff cancelled this order. Please speak to a team member.</div>
+          <div class="order-id">Order #${orderId.slice(0, 8)} · Table ${tableRow.table_number}</div>
+          <button class="confirm-btn back-to-menu-btn" style="max-width:220px; margin:24px auto 0;">Back to menu</button>
+        </div>`;
+      wireBackButton();
+      return;
+    }
     const idx = steps.indexOf(status);
     app.innerHTML = `
       <div class="status-screen">
@@ -518,7 +542,13 @@ function showOrderStatus(orderId) {
             </div>`).join('')}
         </div>
         <div class="order-id">Order #${orderId.slice(0, 8)} · Table ${tableRow.table_number}</div>
+        <button class="confirm-btn back-to-menu-btn" style="max-width:220px; margin:24px auto 0;">Back to menu</button>
       </div>`;
+    wireBackButton();
+  }
+
+  function wireBackButton() {
+    document.querySelector('.back-to-menu-btn')?.addEventListener('click', () => renderMenu());
   }
 
   render('pending');
