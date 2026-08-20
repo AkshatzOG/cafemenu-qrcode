@@ -33,7 +33,7 @@
   .cat-nav button.active { border-color: var(--accent); color: var(--accent); }
 
   main { max-width: 640px; margin: 0 auto; padding: 8px 16px 20px; }
-  .category-block { margin-top: 26px; }
+  .category-block { margin-top: 26px; scroll-margin-top: 74px; }
   .category-title { font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; margin-bottom: 12px; }
 
   .item-card {
@@ -161,12 +161,13 @@ const params = new URLSearchParams(window.location.search);
 const tableToken = params.get('table');
 
 let tableRow = null;
+let isWalkIn = false;
 let settings = null;
 let categories = [];
 let items = [];
 let cart = []; // { key, itemId, name, unitPrice, qty, selections: [{group,label,delta}] }
 
-const CART_KEY = tableToken ? `qrforge_cart_${tableToken}` : 'qrforge_cart_unknown';
+const CART_KEY = tableToken ? `qrforge_cart_${tableToken}` : 'qrforge_cart_walkin';
 
 function loadCart() {
   try { cart = JSON.parse(sessionStorage.getItem(CART_KEY) || '[]'); } catch (e) { cart = []; }
@@ -175,25 +176,33 @@ function saveCart() {
   try { sessionStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (e) {}
 }
 
+// "Table" label for on-screen display: physical tables show "Table N",
+// the reserved walk-in table (table_number 0) shows "Walk-in" instead.
+function tableLabel() {
+  return tableRow.table_number === 0 ? 'Walk-in' : `Table ${tableRow.table_number}`;
+}
+
 async function init() {
-  if (!tableToken) {
-    app.innerHTML = `<div class="error-screen">No table code found in this link.<br>Ask staff to rescan your table's QR code.</div>`;
-    return;
-  }
+  const tableQuery = tableToken
+    ? supabase.from('tables').select('*').eq('qr_token', tableToken).maybeSingle()
+    : supabase.from('tables').select('*').eq('table_number', 0).maybeSingle(); // reserved walk-in row
 
   const [{ data: tableData }, { data: settingsData }, { data: catData }, { data: itemData }] = await Promise.all([
-    supabase.from('tables').select('*').eq('qr_token', tableToken).maybeSingle(),
+    tableQuery,
     supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
     supabase.from('categories').select('*').order('sort_order'),
     supabase.from('menu_items').select('*').eq('is_available', true).order('sort_order')
   ]);
 
   if (!tableData) {
-    app.innerHTML = `<div class="error-screen">This table code isn't recognized.<br>Ask staff for help.</div>`;
+    app.innerHTML = tableToken
+      ? `<div class="error-screen">This table code isn't recognized.<br>Ask staff for help.</div>`
+      : `<div class="error-screen">Online ordering isn't set up yet.<br>Ask staff to scan your table's QR code instead.</div>`;
     return;
   }
 
   tableRow = tableData;
+  isWalkIn = !tableToken;
   settings = settingsData || { restaurant_name: 'Menu', accent_color: '#F2B705' };
   categories = catData || [];
   items = itemData || [];
@@ -204,10 +213,13 @@ async function init() {
 }
 
 function renderMenu() {
-  const catButtons = categories.map(c => `<button data-cat="${c.id}">${escapeHtml(c.name)}</button>`).join('');
-  const blocks = categories.map(cat => {
+  // Only show a nav button for categories that actually have items — a
+  // button pointing at an empty section has nothing to scroll to and just
+  // looks broken when tapped.
+  const categoriesWithItems = categories.filter(cat => items.some(i => i.category_id === cat.id));
+  const catButtons = categoriesWithItems.map(c => `<button data-cat="${c.id}">${escapeHtml(c.name)}</button>`).join('');
+  const blocks = categoriesWithItems.map(cat => {
     const catItems = items.filter(i => i.category_id === cat.id);
-    if (!catItems.length) return '';
     return `
       <div class="category-block" id="cat-${cat.id}">
         <div class="category-title">${escapeHtml(cat.name)}</div>

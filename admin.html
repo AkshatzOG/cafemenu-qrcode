@@ -82,7 +82,10 @@
   .add-cat-row input { flex: 1; }
   .add-cat-row button { background: var(--accent); color: #10120A; border: none; border-radius: 6px; padding: 0 10px; font-weight: 700; }
 
-  .item-row { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+  .item-row { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; transition: opacity 0.15s; }
+  .item-row.unavailable { opacity: 0.45; }
+  .item-row-body { display: flex; gap: 16px; align-items: flex-start; }
+  .item-row-fields { flex: 1; min-width: 0; }
   .item-row-top { display: flex; gap: 10px; margin-bottom: 8px; }
   .item-row-top input { flex: 1; }
   .item-row textarea { width: 100%; min-height: 44px; font-family: 'Inter', sans-serif; margin-bottom: 8px; }
@@ -91,6 +94,19 @@
   .item-row-actions button { background: #0E1116; border: 1px solid var(--border); color: var(--text); border-radius: 5px; padding: 6px 12px; font-size: 11px; }
   .item-row-actions .delete-item { color: var(--danger); margin-left: auto; }
   .avail-toggle { display: flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); }
+
+  .item-preview-wrap { width: 170px; flex: none; }
+  .preview-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .preview-card { background: #0E1116; border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+  .preview-item-card { display: flex; gap: 8px; }
+  .preview-item-card img { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; background: #222; flex: none; }
+  .preview-no-img { width: 44px; height: 44px; border-radius: 6px; background: #222; flex: none; display: flex; align-items: center; justify-content: center; font-size: 8px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; text-align: center; }
+  .preview-item-info { min-width: 0; flex: 1; }
+  .preview-item-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .preview-item-desc { font-size: 10px; color: var(--text-dim); margin: 2px 0 4px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .preview-item-row { display: flex; justify-content: space-between; align-items: center; }
+  .preview-item-price { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; }
+  .preview-add-btn { background: var(--accent); color: #10120A; font-family: 'IBM Plex Mono', monospace; font-size: 9px; padding: 2px 7px; border-radius: 4px; }
 
   .add-item-btn { background: var(--accent); color: #10120A; border: none; border-radius: 6px; padding: 10px 18px; font-weight: 700; font-size: 12.5px; margin-top: 6px; }
 
@@ -147,6 +163,7 @@
   <div class="app-header">
     <h1 id="header-name">Admin</h1>
     <div class="spacer"></div>
+    <a id="preview-menu-link" href="#" target="_blank" rel="noopener" style="display:none; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--teal); text-decoration:none; border:1px solid var(--border); border-radius:6px; padding:8px 14px;">View live menu ↗</a>
     <button id="logout-btn">Sign out</button>
   </div>
   <div class="tabs">
@@ -206,6 +223,17 @@ async function showApp() {
   wireTabs();
   renderTab('orders');
   subscribeRealtime();
+  wirePreviewLink();
+}
+
+async function wirePreviewLink() {
+  const { data } = await supabase.from('tables').select('qr_token').order('table_number').limit(1).maybeSingle();
+  const link = $('preview-menu-link');
+  if (data?.qr_token) {
+    const menuUrl = new URL('menu.html', window.location.href).href;
+    link.href = `${menuUrl}?table=${data.qr_token}`;
+    link.style.display = 'inline-block';
+  }
 }
 
 function wireTabs() {
@@ -378,6 +406,14 @@ function renderItemsPanel() {
 
   el.querySelectorAll('.item-row').forEach(row => {
     const id = row.dataset.id;
+    const item = catItems.find(i => i.id === id);
+    wireItemPreview(row, item);
+
+    const availCheckbox = row.querySelector('.f-avail');
+    const applyDim = () => row.classList.toggle('unavailable', !availCheckbox.checked);
+    applyDim();
+    availCheckbox.addEventListener('change', applyDim);
+
     row.querySelector('.save-item').addEventListener('click', () => saveItem(id, row));
     row.querySelector('.delete-item').addEventListener('click', async () => {
       if (!confirm('Delete this item?')) return;
@@ -394,20 +430,64 @@ function renderItemsPanel() {
 function renderItemRow(item) {
   return `
     <div class="item-row" data-id="${item.id}">
-      <div class="item-row-top">
-        <input type="text" class="f-name" value="${escapeAttr(item.name)}" placeholder="Name">
-        <input type="number" class="f-price" value="${item.price}" placeholder="Price" style="width:90px">
-        <input type="text" class="f-image" value="${escapeAttr(item.image_url || '')}" placeholder="Image URL" style="width:160px">
-      </div>
-      <textarea class="f-desc" placeholder="Description">${escapeHtml(item.description || '')}</textarea>
-      <label>Customizations (JSON — leave as [] if none)</label>
-      <textarea class="custom-json f-custom">${escapeHtml(JSON.stringify(item.customizations || [], null, 2))}</textarea>
-      <div class="item-row-actions">
-        <label class="avail-toggle"><input type="checkbox" class="f-avail" ${item.is_available ? 'checked' : ''}> Available</label>
-        <button class="save-item">Save</button>
-        <button class="delete-item">Delete</button>
+      <div class="item-row-body">
+        <div class="item-row-fields">
+          <div class="item-row-top">
+            <input type="text" class="f-name" value="${escapeAttr(item.name)}" placeholder="Name">
+            <input type="number" class="f-price" value="${item.price}" placeholder="Price" style="width:90px">
+            <input type="text" class="f-image" value="${escapeAttr(item.image_url || '')}" placeholder="Image URL" style="width:160px">
+          </div>
+          <textarea class="f-desc" placeholder="Description">${escapeHtml(item.description || '')}</textarea>
+          <label>Customizations (JSON — leave as [] if none)</label>
+          <textarea class="custom-json f-custom">${escapeHtml(JSON.stringify(item.customizations || [], null, 2))}</textarea>
+          <div class="item-row-actions">
+            <label class="avail-toggle"><input type="checkbox" class="f-avail" ${item.is_available ? 'checked' : ''}> Available</label>
+            <button class="save-item">Save</button>
+            <button class="delete-item">Delete</button>
+          </div>
+        </div>
+        <div class="item-preview-wrap">
+          <div class="preview-label">Customer preview</div>
+          <div class="preview-card" id="preview-${item.id}"></div>
+        </div>
       </div>
     </div>`;
+}
+
+function renderPreviewCard(item, container) {
+  const name = item.name || 'Item name';
+  const price = Number(item.price) || 0;
+  const desc = item.description || '';
+  const img = item.image_url || '';
+  container.innerHTML = `
+    <div class="preview-item-card">
+      ${img ? `<img src="${img}" alt="" onerror="this.style.display='none'">` : `<div class="preview-no-img">No image</div>`}
+      <div class="preview-item-info">
+        <div class="preview-item-name">${escapeHtml(name)}</div>
+        ${desc ? `<div class="preview-item-desc">${escapeHtml(desc)}</div>` : ''}
+        <div class="preview-item-row">
+          <span class="preview-item-price">₹${price.toFixed(0)}</span>
+          <span class="preview-add-btn">Add</span>
+        </div>
+      </div>
+    </div>`;
+}
+
+function wireItemPreview(row, item) {
+  const container = row.querySelector(`#preview-${item.id}`);
+  const state = { ...item };
+  renderPreviewCard(state, container);
+
+  const update = () => {
+    state.name = row.querySelector('.f-name').value;
+    state.price = row.querySelector('.f-price').value;
+    state.image_url = row.querySelector('.f-image').value;
+    state.description = row.querySelector('.f-desc').value;
+    renderPreviewCard(state, container);
+  };
+  ['.f-name', '.f-price', '.f-image', '.f-desc'].forEach(sel => {
+    row.querySelector(sel).addEventListener('input', update);
+  });
 }
 
 async function saveItem(id, row) {
