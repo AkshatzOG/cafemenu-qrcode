@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — QR Forge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0E1116; --panel: #171B22; --border: #262C36;
+    --text: #E8EAED; --text-dim: #8B93A1;
+    --accent: #F2B705; --teal: #4FD1C5; --danger: #E5484D; --success: #3FBF60;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }
+  input, textarea, select {
+    background: #0E1116; border: 1px solid var(--border); border-radius: 6px; padding: 9px 10px;
+    color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; outline: none;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  button { cursor: pointer; font-family: 'IBM Plex Mono', monospace; }
+  label { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text-dim); margin-bottom: 6px; }
+
+  /* Login */
+  #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .login-box { width: 320px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 28px; }
+  .login-box h1 { font-family: 'Space Grotesk', sans-serif; font-size: 19px; margin: 0 0 4px; }
+  .login-box .sub { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); margin-bottom: 20px; }
+  .login-box .field { margin-bottom: 14px; }
+  .login-box input { width: 100%; }
+  .login-box button { width: 100%; background: var(--accent); color: #10120A; border: none; border-radius: 6px; padding: 11px; font-weight: 700; font-size: 13px; margin-top: 6px; }
+  .login-error { color: var(--danger); font-size: 11px; margin-top: 10px; display: none; }
+
+  /* App shell */
+  #app-screen { display: none; min-height: 100vh; }
+  .app-header { display: flex; align-items: center; padding: 16px 24px; border-bottom: 1px solid var(--border); gap: 16px; }
+  .app-header h1 { font-family: 'Space Grotesk', sans-serif; font-size: 17px; margin: 0; }
+  .app-header .spacer { flex: 1; }
+  .app-header button { background: none; border: 1px solid var(--border); color: var(--text-dim); border-radius: 6px; padding: 8px 14px; font-size: 11px; }
+
+  .tabs { display: flex; gap: 6px; padding: 14px 24px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+  .tabs button { flex: none; background: var(--panel); border: 1px solid var(--border); color: var(--text-dim); border-radius: 20px; padding: 8px 16px; font-size: 12px; }
+  .tabs button.active { border-color: var(--accent); color: var(--accent); }
+
+  .tab-content { padding: 22px 24px; max-width: 1200px; margin: 0 auto; }
+  .panel-title { font-family: 'Space Grotesk', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+
+  /* Orders board */
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  @media (max-width: 900px) { .board { grid-template-columns: 1fr; } }
+  .board-col { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; min-height: 200px; }
+  .board-col h3 { font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); margin: 0 0 12px; }
+  .order-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+  .order-card .top-row { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--teal); margin-bottom: 6px; }
+  .order-card .items { font-size: 12px; line-height: 1.6; margin-bottom: 8px; }
+  .order-card .items .mods { color: var(--text-dim); font-size: 10.5px; }
+  .order-card .note { font-size: 11px; color: var(--accent); margin-bottom: 8px; font-style: italic; }
+  .order-card .total { font-family: 'IBM Plex Mono', monospace; font-size: 12px; margin-bottom: 8px; display:flex; justify-content:space-between; }
+  .order-card .pay-tag { font-size: 10px; padding: 2px 7px; border-radius: 10px; }
+  .pay-tag.paid { background: rgba(63,191,96,0.15); color: var(--success); }
+  .pay-tag.unpaid { background: rgba(229,72,77,0.15); color: var(--danger); }
+  .order-actions { display: flex; gap: 6px; }
+  .order-actions button { flex: 1; background: #0E1116; border: 1px solid var(--border); color: var(--text); border-radius: 5px; padding: 6px; font-size: 10.5px; }
+  .order-actions button:hover { border-color: var(--accent); }
+  .order-actions button.cancel { color: var(--danger); }
+  .empty-col { color: var(--text-dim); font-size: 11px; font-family: 'IBM Plex Mono', monospace; text-align: center; padding: 20px 0; }
+
+  /* Menu management */
+  .menu-layout { display: grid; grid-template-columns: 240px 1fr; gap: 20px; }
+  @media (max-width: 800px) { .menu-layout { grid-template-columns: 1fr; } }
+  .cat-list { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .cat-list-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 6px; border-radius: 6px; cursor: pointer; font-size: 12.5px; }
+  .cat-list-item:hover { background: rgba(255,255,255,0.03); }
+  .cat-list-item.active { color: var(--accent); }
+  .cat-list-item .del { color: var(--danger); font-size: 12px; opacity: 0.6; }
+  .add-cat-row { display: flex; gap: 6px; margin-top: 10px; }
+  .add-cat-row input { flex: 1; }
+  .add-cat-row button { background: var(--accent); color: #10120A; border: none; border-radius: 6px; padding: 0 10px; font-weight: 700; }
+
+  .item-row { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+  .item-row-top { display: flex; gap: 10px; margin-bottom: 8px; }
+  .item-row-top input { flex: 1; }
+  .item-row textarea { width: 100%; min-height: 44px; font-family: 'Inter', sans-serif; margin-bottom: 8px; }
+  .item-row .custom-json { width: 100%; min-height: 60px; margin-bottom: 8px; }
+  .item-row-actions { display: flex; gap: 8px; align-items: center; }
+  .item-row-actions button { background: #0E1116; border: 1px solid var(--border); color: var(--text); border-radius: 5px; padding: 6px 12px; font-size: 11px; }
+  .item-row-actions .delete-item { color: var(--danger); margin-left: auto; }
+  .avail-toggle { display: flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); }
+
+  .add-item-btn { background: var(--accent); color: #10120A; border: none; border-radius: 6px; padding: 10px 18px; font-weight: 700; font-size: 12.5px; margin-top: 6px; }
+
+  /* Tables tab */
+  .tables-toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+  .tables-toolbar button { background: #0E1116; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 9px 16px; font-size: 12px; }
+  .tables-toolbar button.primary { background: var(--accent); color: #10120A; border: none; font-weight: 700; }
+  .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .qr-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px; text-align: center; }
+  .qr-card .mount canvas { width: 100% !important; height: auto !important; border-radius: 4px; }
+  .qr-card .label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; margin: 8px 0; }
+  .qr-card button { width: 100%; background: #0E1116; border: 1px solid var(--border); color: var(--text-dim); border-radius: 5px; padding: 6px; font-size: 10.5px; }
+
+  /* Settings */
+  .settings-form { max-width: 420px; }
+  .settings-form .field { margin-bottom: 16px; }
+  .settings-form input { width: 100%; }
+  .settings-form button { background: var(--accent); color: #10120A; border: none; border-radius: 6px; padding: 11px 20px; font-weight: 700; font-size: 12.5px; }
+  .save-confirm { color: var(--success); font-size: 11px; font-family: 'IBM Plex Mono', monospace; margin-left: 12px; display: none; }
+
+  .loading-row { color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 20px; }
+
+  /* Print sheet (reused pattern) */
+  .print-sheet { display: none; }
+  @media print {
+    body * { visibility: hidden; }
+    .print-sheet, .print-sheet * { visibility: visible; }
+    .print-sheet { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; position: absolute; top: 0; left: 0; right: 0; }
+    .tent { border: 1px dashed #999; border-radius: 8px; padding: 18px; text-align: center; page-break-inside: avoid; color: #111; }
+    .tent img.tent-logo { width: 36px; height: 36px; object-fit: contain; margin-bottom: 6px; }
+    .tent .tent-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+    .tent img.tent-qr { width: 100%; max-width: 180px; margin-bottom: 8px; }
+    .tent .tent-number { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; margin-top: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Staff login</h1>
+    <div class="sub">// admin.qrforge</div>
+    <div class="field"><label>Email</label><input type="email" id="login-email" style="width:100%"></div>
+    <div class="field"><label>Password</label><input type="password" id="login-password" style="width:100%"></div>
+    <button id="login-btn">Sign in</button>
+    <div class="login-error" id="login-error">Invalid email or password.</div>
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-dim); margin-top:14px; line-height:1.6;">
+      No account yet? Create one in Supabase → Authentication → Users, then sign in here.
+    </div>
+  </div>
+</div>
+
+<div id="app-screen">
+  <div class="app-header">
+    <h1 id="header-name">Admin</h1>
+    <div class="spacer"></div>
+    <button id="logout-btn">Sign out</button>
+  </div>
+  <div class="tabs">
+    <button data-tab="orders" class="active">Live orders</button>
+    <button data-tab="menu">Menu</button>
+    <button data-tab="tables">Tables</button>
+    <button data-tab="settings">Settings</button>
+  </div>
+  <div class="tab-content" id="tab-content"></div>
+</div>
+
+<div class="print-sheet" id="print-sheet"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js"></script>
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './shared/config.js';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const $ = (id) => document.getElementById(id);
+
+let currentTab = 'orders';
+let ordersCache = [];
+let orderItemsCache = [];
+let categoriesCache = [];
+let itemsCache = [];
+let tablesCache = [];
+let settingsCache = null;
+let activeCatId = null;
+let tableQrInstances = [];
+
+// ── Auth ─────────────────────────────────────────────────────────────────
+$('login-btn').addEventListener('click', async () => {
+  const email = $('login-email').value.trim();
+  const password = $('login-password').value;
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) { $('login-error').style.display = 'block'; return; }
+  showApp();
+});
+
+$('logout-btn').addEventListener('click', async () => {
+  await supabase.auth.signOut();
+  location.reload();
+});
+
+async function checkSession() {
+  const { data } = await supabase.auth.getSession();
+  if (data.session) showApp();
+}
+
+async function showApp() {
+  $('login-screen').style.display = 'none';
+  $('app-screen').style.display = 'block';
+  await loadSettings();
+  $('header-name').textContent = settingsCache?.restaurant_name ? `${settingsCache.restaurant_name} — Admin` : 'Admin';
+  wireTabs();
+  renderTab('orders');
+  subscribeRealtime();
+}
+
+function wireTabs() {
+  document.querySelectorAll('.tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTab(btn.dataset.tab);
+    });
+  });
+}
+
+async function renderTab(tab) {
+  currentTab = tab;
+  const el = $('tab-content');
+  el.innerHTML = '<div class="loading-row">Loading…</div>';
+  if (tab === 'orders') return renderOrdersTab();
+  if (tab === 'menu') return renderMenuTab();
+  if (tab === 'tables') return renderTablesTab();
+  if (tab === 'settings') return renderSettingsTab();
+}
+
+// ── Orders ───────────────────────────────────────────────────────────────
+async function fetchOrders() {
+  const { data: orders } = await supabase.from('orders').select('*, tables(table_number)').order('created_at', { ascending: false }).limit(100);
+  const { data: orderItems } = await supabase.from('order_items').select('*');
+  ordersCache = orders || [];
+  orderItemsCache = orderItems || [];
+}
+
+async function renderOrdersTab() {
+  await fetchOrders();
+  const cols = [
+    { status: 'pending', label: 'Pending', next: 'preparing' },
+    { status: 'preparing', label: 'Preparing', next: 'ready' },
+    { status: 'ready', label: 'Ready', next: 'served' },
+    { status: 'served', label: 'Served', next: null }
+  ];
+  const el = $('tab-content');
+  el.innerHTML = `<div class="panel-title">Live orders</div><div class="board">${cols.map(renderCol).join('')}</div>`;
+
+  function renderCol(col) {
+    const colOrders = ordersCache.filter(o => o.status === col.status);
+    return `
+      <div class="board-col">
+        <h3>${col.label} · ${colOrders.length}</h3>
+        ${colOrders.length ? colOrders.map(o => renderOrderCard(o, col.next)).join('') : '<div class="empty-col">—</div>'}
+      </div>`;
+  }
+  el.querySelectorAll('.advance-btn').forEach(b => b.addEventListener('click', () => advanceOrder(b.dataset.id, b.dataset.next)));
+  el.querySelectorAll('.cancel-btn').forEach(b => b.addEventListener('click', () => cancelOrder(b.dataset.id)));
+}
+
+function renderOrderCard(order, nextStatus) {
+  const items = orderItemsCache.filter(i => i.order_id === order.id);
+  const tableNum = order.tables?.table_number ?? '?';
+  return `
+    <div class="order-card">
+      <div class="top-row"><span>Table ${tableNum}</span><span class="pay-tag ${order.payment_status}">${order.payment_status}</span></div>
+      <div class="items">
+        ${items.map(i => `${i.quantity}× ${escapeHtml(i.item_name)}${i.customizations?.length ? `<div class="mods">${i.customizations.map(c => c.label).join(', ')}</div>` : ''}`).join('')}
+      </div>
+      ${order.customer_note ? `<div class="note">"${escapeHtml(order.customer_note)}"</div>` : ''}
+      <div class="total"><span>Total</span><span>₹${Number(order.total).toFixed(0)}</span></div>
+      <div class="order-actions">
+        ${nextStatus ? `<button class="advance-btn" data-id="${order.id}" data-next="${nextStatus}">Mark ${nextStatus}</button>` : ''}
+        ${order.status !== 'served' && order.status !== 'cancelled' ? `<button class="cancel-btn cancel" data-id="${order.id}">Cancel</button>` : ''}
+      </div>
+    </div>`;
+}
+
+async function advanceOrder(id, nextStatus) {
+  await supabase.from('orders').update({ status: nextStatus }).eq('id', id);
+  if (currentTab === 'orders') renderOrdersTab();
+}
+async function cancelOrder(id) {
+  await supabase.from('orders').update({ status: 'cancelled' }).eq('id', id);
+  if (currentTab === 'orders') renderOrdersTab();
+}
+
+function subscribeRealtime() {
+  supabase.channel('admin-orders')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+      if (currentTab === 'orders') renderOrdersTab();
+    })
+    .subscribe();
+}
+
+// ── Menu ─────────────────────────────────────────────────────────────────
+async function fetchMenu() {
+  const { data: cats } = await supabase.from('categories').select('*').order('sort_order');
+  const { data: items } = await supabase.from('menu_items').select('*').order('sort_order');
+  categoriesCache = cats || [];
+  itemsCache = items || [];
+  if (!activeCatId && categoriesCache.length) activeCatId = categoriesCache[0].id;
+}
+
+async function renderMenuTab() {
+  await fetchMenu();
+  const el = $('tab-content');
+  el.innerHTML = `
+    <div class="panel-title">Menu management</div>
+    <div class="menu-layout">
+      <div class="cat-list" id="cat-list"></div>
+      <div id="items-panel"></div>
+    </div>`;
+  renderCatList();
+  renderItemsPanel();
+}
+
+function renderCatList() {
+  const el = $('cat-list');
+  el.innerHTML = `
+    ${categoriesCache.map(c => `
+      <div class="cat-list-item ${c.id === activeCatId ? 'active' : ''}" data-id="${c.id}">
+        <span>${escapeHtml(c.name)}</span>
+        <span class="del" data-del="${c.id}">✕</span>
+      </div>`).join('')}
+    <div class="add-cat-row">
+      <input type="text" id="new-cat-name" placeholder="New category">
+      <button id="add-cat-btn">+</button>
+    </div>`;
+  el.querySelectorAll('.cat-list-item').forEach(row => row.addEventListener('click', (e) => {
+    if (e.target.dataset.del) return;
+    activeCatId = row.dataset.id;
+    renderCatList(); renderItemsPanel();
+  }));
+  el.querySelectorAll('[data-del]').forEach(x => x.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!confirm('Delete this category? Items in it will become uncategorized.')) return;
+    await supabase.from('categories').delete().eq('id', x.dataset.del);
+    await fetchMenu(); renderCatList(); renderItemsPanel();
+  }));
+  $('add-cat-btn').addEventListener('click', async () => {
+    const name = $('new-cat-name').value.trim();
+    if (!name) return;
+    await supabase.from('categories').insert({ name, sort_order: categoriesCache.length });
+    await fetchMenu(); renderCatList(); renderItemsPanel();
+  });
+}
+
+function renderItemsPanel() {
+  const el = $('items-panel');
+  const catItems = itemsCache.filter(i => i.category_id === activeCatId);
+  el.innerHTML = `
+    ${catItems.map(renderItemRow).join('')}
+    <button class="add-item-btn" id="add-item-btn">+ Add item</button>`;
+
+  el.querySelectorAll('.item-row').forEach(row => {
+    const id = row.dataset.id;
+    row.querySelector('.save-item').addEventListener('click', () => saveItem(id, row));
+    row.querySelector('.delete-item').addEventListener('click', async () => {
+      if (!confirm('Delete this item?')) return;
+      await supabase.from('menu_items').delete().eq('id', id);
+      await fetchMenu(); renderItemsPanel();
+    });
+  });
+  $('add-item-btn').addEventListener('click', async () => {
+    await supabase.from('menu_items').insert({ category_id: activeCatId, name: 'New item', price: 0, sort_order: catItems.length });
+    await fetchMenu(); renderItemsPanel();
+  });
+}
+
+function renderItemRow(item) {
+  return `
+    <div class="item-row" data-id="${item.id}">
+      <div class="item-row-top">
+        <input type="text" class="f-name" value="${escapeAttr(item.name)}" placeholder="Name">
+        <input type="number" class="f-price" value="${item.price}" placeholder="Price" style="width:90px">
+        <input type="text" class="f-image" value="${escapeAttr(item.image_url || '')}" placeholder="Image URL" style="width:160px">
+      </div>
+      <textarea class="f-desc" placeholder="Description">${escapeHtml(item.description || '')}</textarea>
+      <label>Customizations (JSON — leave as [] if none)</label>
+      <textarea class="custom-json f-custom">${escapeHtml(JSON.stringify(item.customizations || [], null, 2))}</textarea>
+      <div class="item-row-actions">
+        <label class="avail-toggle"><input type="checkbox" class="f-avail" ${item.is_available ? 'checked' : ''}> Available</label>
+        <button class="save-item">Save</button>
+        <button class="delete-item">Delete</button>
+      </div>
+    </div>`;
+}
+
+async function saveItem(id, row) {
+  const name = row.querySelector('.f-name').value.trim();
+  const price = parseFloat(row.querySelector('.f-price').value) || 0;
+  const image_url = row.querySelector('.f-image').value.trim() || null;
+  const description = row.querySelector('.f-desc').value.trim();
+  const is_available = row.querySelector('.f-avail').checked;
+  let customizations = [];
+  try {
+    customizations = JSON.parse(row.querySelector('.f-custom').value || '[]');
+  } catch (e) {
+    alert('Customizations must be valid JSON. Not saved.');
+    return;
+  }
+  await supabase.from('menu_items').update({ name, price, image_url, description, is_available, customizations }).eq('id', id);
+  await fetchMenu();
+}
+
+// ── Tables / QR ──────────────────────────────────────────────────────────
+async function fetchTables() {
+  const { data } = await supabase.from('tables').select('*').order('table_number');
+  tablesCache = data || [];
+}
+
+async function renderTablesTab() {
+  await fetchTables();
+  const el = $('tab-content');
+  el.innerHTML = `
+    <div class="panel-title">Tables &amp; QR codes</div>
+    <div class="tables-toolbar">
+      <button class="primary" id="add-table-btn">+ Add table</button>
+      <button id="regen-qr-btn">Regenerate all codes</button>
+      <button id="zip-qr-btn" ${tablesCache.length ? '' : 'disabled'}>Download all (.zip)</button>
+      <button id="print-qr-btn" ${tablesCache.length ? '' : 'disabled'}>Print table tents</button>
+    </div>
+    <div class="qr-grid" id="qr-grid"></div>`;
+
+  $('add-table-btn').addEventListener('click', async () => {
+    const nextNum = tablesCache.length ? Math.max(...tablesCache.map(t => t.table_number)) + 1 : 1;
+    await supabase.from('tables').insert({ table_number: nextNum });
+    renderTablesTab();
+  });
+  $('regen-qr-btn').addEventListener('click', renderQrGrid);
+  $('zip-qr-btn').addEventListener('click', downloadAllQr);
+  $('print-qr-btn').addEventListener('click', printTableTents);
+
+  renderQrGrid();
+}
+
+function renderQrGrid() {
+  const grid = $('qr-grid');
+  grid.innerHTML = '';
+  tableQrInstances = [];
+  const menuBase = new URL('menu.html', window.location.href).href;
+
+  tablesCache.forEach(t => {
+    const url = `${menuBase}?table=${t.qr_token}`;
+    const card = document.createElement('div');
+    card.className = 'qr-card';
+    card.innerHTML = `
+      <div class="mount" id="qr-mount-${t.id}"></div>
+      <div class="label">Table ${t.table_number}</div>
+      <button class="del-table-btn" data-id="${t.id}">Remove table</button>`;
+    grid.appendChild(card);
+
+    const qrCode = new QRCodeStyling({
+      width: 220, height: 220, type: 'canvas', data: url,
+      image: settingsCache?.logo_url || undefined,
+      dotsOptions: { color: '#0E1116', type: 'rounded' },
+      cornersSquareOptions: { color: '#0E1116', type: 'extra-rounded' },
+      backgroundOptions: { color: '#ffffff' },
+      imageOptions: { crossOrigin: 'anonymous', margin: 6, imageSize: 0.22 },
+      qrOptions: { errorCorrectionLevel: settingsCache?.logo_url ? 'H' : 'Q' }
+    });
+    qrCode.append(document.getElementById(`qr-mount-${t.id}`));
+    tableQrInstances.push({ table: t, qrCode });
+  });
+
+  grid.querySelectorAll('.del-table-btn').forEach(btn => btn.addEventListener('click', async () => {
+    if (!confirm('Remove this table? Its QR code will stop working.')) return;
+    await supabase.from('tables').delete().eq('id', btn.dataset.id);
+    renderTablesTab();
+  }));
+}
+
+async function downloadAllQr() {
+  if (!tableQrInstances.length) return;
+  const zip = new JSZip();
+  for (const inst of tableQrInstances) {
+    const raw = await inst.qrCode.getRawData('png');
+    zip.file(`table-${inst.table.table_number}-qr.png`, raw);
+  }
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'table-qr-codes.zip';
+  link.click();
+}
+
+function printTableTents() {
+  const sheet = $('print-sheet');
+  sheet.innerHTML = '';
+  const name = settingsCache?.restaurant_name || 'Your Restaurant';
+  tableQrInstances.forEach(inst => {
+    const canvas = document.querySelector(`#qr-mount-${inst.table.id} canvas`);
+    const imgSrc = canvas ? canvas.toDataURL('image/png') : '';
+    const tent = document.createElement('div');
+    tent.className = 'tent';
+    tent.innerHTML = `
+      ${settingsCache?.logo_url ? `<img class="tent-logo" src="${settingsCache.logo_url}" alt="">` : ''}
+      <div class="tent-name">${escapeHtml(name)}</div>
+      <img class="tent-qr" src="${imgSrc}" alt="">
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#555;">Scan to view menu &amp; order</div>
+      <div class="tent-number">Table ${inst.table.table_number}</div>`;
+    sheet.appendChild(tent);
+  });
+  setTimeout(() => window.print(), 100);
+}
+
+// ── Settings ─────────────────────────────────────────────────────────────
+async function loadSettings() {
+  const { data } = await supabase.from('settings').select('*').eq('id', 1).maybeSingle();
+  settingsCache = data;
+}
+
+function renderSettingsTab() {
+  const el = $('tab-content');
+  const s = settingsCache || {};
+  el.innerHTML = `
+    <div class="panel-title">Branding</div>
+    <div class="settings-form">
+      <div class="field"><label>Restaurant name</label><input type="text" id="s-name" value="${escapeAttr(s.restaurant_name || '')}"></div>
+      <div class="field">
+        <label>Logo</label>
+        <input type="file" id="s-logo-file" accept="image/png, image/jpeg, image/webp, image/svg+xml">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text-dim); margin-top:6px; line-height:1.5;">
+          Uploaded as an embedded image, not a link — this avoids a real bug where an externally-hosted logo without CORS headers breaks QR/ZIP export (canvas gets "tainted" and can't be read back out). Keep the file small (under ~200KB) since it's stored inline.
+        </div>
+        <div id="s-logo-preview" style="margin-top:8px;"></div>
+      </div>
+      <div class="field"><label>Accent color</label><input type="color" id="s-color" value="${s.accent_color || '#F2B705'}" style="width:60px; height:36px; padding:2px;"></div>
+      <button id="save-settings-btn">Save</button>
+      <span class="save-confirm" id="save-confirm">Saved</span>
+    </div>`;
+
+  let pendingLogoDataUrl = s.logo_url || null;
+  if (pendingLogoDataUrl) renderLogoPreview(pendingLogoDataUrl);
+
+  function renderLogoPreview(src) {
+    $('s-logo-preview').innerHTML = `<img src="${src}" style="width:40px; height:40px; object-fit:contain; background:#fff; border-radius:6px;">`;
+  }
+
+  $('s-logo-file').addEventListener('change', () => {
+    const file = $('s-logo-file').files[0];
+    if (!file) return;
+    if (file.size > 500 * 1024) {
+      alert('That logo is over 500KB — pick a smaller file so it stays fast to load.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      pendingLogoDataUrl = e.target.result;
+      renderLogoPreview(pendingLogoDataUrl);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  $('save-settings-btn').addEventListener('click', async () => {
+    const restaurant_name = $('s-name').value.trim();
+    const accent_color = $('s-color').value;
+    await supabase.from('settings').update({ restaurant_name, logo_url: pendingLogoDataUrl, accent_color }).eq('id', 1);
+    await loadSettings();
+    $('header-name').textContent = `${restaurant_name} — Admin`;
+    $('save-confirm').style.display = 'inline';
+    setTimeout(() => $('save-confirm').style.display = 'none', 1500);
+  });
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+function escapeAttr(str) {
+  return (str ?? '').replace(/"/g, '&quot;');
+}
+
+checkSession();
+</script>
+</body>
+</html>

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Menu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0E1116; --panel: #171B22; --border: #262C36;
+    --text: #E8EAED; --text-dim: #8B93A1;
+    --accent: #F2B705; --teal: #4FD1C5; --danger: #E5484D; --success: #3FBF60;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; padding-bottom: 90px; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 20;
+    background: rgba(14,17,22,0.92); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 18px; display: flex; align-items: center; gap: 12px;
+  }
+  .topbar img { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; background: #fff; }
+  .topbar .name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; }
+  .topbar .table-tag { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--teal); border: 1px solid var(--border); border-radius: 20px; padding: 5px 11px; }
+
+  .cat-nav { display: flex; gap: 8px; overflow-x: auto; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .cat-nav button {
+    flex: none; background: var(--panel); border: 1px solid var(--border); color: var(--text-dim);
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 8px 14px; border-radius: 20px; cursor: pointer;
+  }
+  .cat-nav button.active { border-color: var(--accent); color: var(--accent); }
+
+  main { max-width: 640px; margin: 0 auto; padding: 8px 16px 20px; }
+  .category-block { margin-top: 26px; }
+  .category-title { font-family: 'Space Grotesk', sans-serif; font-size: 19px; font-weight: 700; margin-bottom: 12px; }
+
+  .item-card {
+    display: flex; gap: 12px; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px; margin-bottom: 10px;
+  }
+  .item-card img { width: 68px; height: 68px; border-radius: 8px; object-fit: cover; background: #222; flex: none; }
+  .item-info { flex: 1; min-width: 0; }
+  .item-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14.5px; }
+  .item-desc { font-size: 12px; color: var(--text-dim); margin: 3px 0 8px; line-height: 1.4; }
+  .item-row { display: flex; align-items: center; justify-content: space-between; }
+  .item-price { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--text); }
+  .add-btn {
+    background: var(--accent); color: #10120A; border: none; border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 12px;
+    padding: 7px 14px; cursor: pointer;
+  }
+  .add-btn:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+
+  /* Cart bar */
+  .cart-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 30;
+    display: none; justify-content: center; padding: 14px 16px;
+    background: linear-gradient(to top, var(--bg) 60%, transparent);
+  }
+  .cart-bar.visible { display: flex; }
+  .cart-bar button {
+    width: 100%; max-width: 608px; background: var(--accent); color: #10120A;
+    border: none; border-radius: 10px; padding: 15px; font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700; font-size: 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+  }
+  .cart-bar .badge { background: #10120A; color: var(--accent); border-radius: 20px; padding: 2px 9px; font-size: 12px; margin-right: 8px; }
+
+  /* Sheets (modal drawers) */
+  .sheet-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 40;
+    display: none; align-items: flex-end; justify-content: center;
+  }
+  .sheet-overlay.visible { display: flex; }
+  .sheet {
+    background: var(--panel); border: 1px solid var(--border); border-bottom: none;
+    border-radius: 16px 16px 0 0; width: 100%; max-width: 640px; max-height: 85vh;
+    overflow-y: auto; padding: 20px; animation: slideUp 0.2s ease-out;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .sheet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .sheet-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 17px; }
+  .sheet-close { background: none; border: none; color: var(--text-dim); font-size: 20px; cursor: pointer; line-height: 1; }
+
+  .opt-group { margin-bottom: 18px; }
+  .opt-group-name { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .opt-choice { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .opt-choice:last-child { border-bottom: none; }
+  .opt-choice-label { font-size: 13.5px; }
+  .opt-choice-delta { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-dim); }
+  .opt-choice input { accent-color: var(--accent); width: 17px; height: 17px; }
+
+  .qty-row { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 16px 0; }
+  .qty-row button { width: 36px; height: 36px; border-radius: 50%; background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: 18px; cursor: pointer; }
+  .qty-row span { font-family: 'IBM Plex Mono', monospace; font-size: 16px; min-width: 20px; text-align: center; }
+
+  .sheet .confirm-btn {
+    width: 100%; background: var(--accent); color: #10120A; border: none; border-radius: 8px;
+    padding: 14px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px; cursor: pointer;
+  }
+
+  .cart-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 10px; }
+  .cart-item-name { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13.5px; }
+  .cart-item-mods { font-size: 11px; color: var(--text-dim); margin-top: 3px; }
+  .cart-item-qty { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .cart-item-qty button { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; font-size: 13px; line-height: 1; }
+  .cart-item-price { font-family: 'IBM Plex Mono', monospace; font-size: 13px; white-space: nowrap; }
+  .remove-btn { background: none; border: none; color: var(--danger); font-size: 11px; cursor: pointer; margin-top: 6px; font-family: 'IBM Plex Mono', monospace; }
+
+  .note-field { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); padding: 10px; font-family: 'Inter', sans-serif; font-size: 13px; margin: 12px 0; resize: vertical; min-height: 50px; }
+
+  .totals-row { display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 13px; padding: 6px 0; }
+  .totals-row.grand { font-size: 15px; font-weight: 600; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 12px; color: var(--accent); }
+
+  /* Payment stub */
+  .pay-field { margin-bottom: 12px; }
+  .pay-field label { display: block; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text-dim); margin-bottom: 6px; }
+  .pay-field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px; color: var(--text); font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+  .pay-row { display: flex; gap: 10px; }
+  .pay-row > .pay-field { flex: 1; }
+  .demo-badge { background: rgba(242,183,5,0.12); color: var(--accent); border: 1px solid rgba(242,183,5,0.3); border-radius: 6px; padding: 8px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; margin-bottom: 16px; line-height: 1.5; }
+
+  /* Order status */
+  .status-screen { text-align: center; padding: 40px 24px; }
+  .status-icon { width: 64px; height: 64px; border-radius: 50%; background: rgba(63,191,96,0.12); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 28px; }
+  .status-track { display: flex; justify-content: space-between; margin: 30px auto; max-width: 340px; position: relative; }
+  .status-track::before { content: ''; position: absolute; top: 11px; left: 20px; right: 20px; height: 2px; background: var(--border); z-index: 0; }
+  .status-step { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+  .status-dot { width: 24px; height: 24px; border-radius: 50%; background: var(--bg); border: 2px solid var(--border); }
+  .status-step.done .status-dot { background: var(--accent); border-color: var(--accent); }
+  .status-step-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text-dim); text-align: center; }
+  .status-step.done .status-step-label { color: var(--text); }
+  .order-id { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--text-dim); margin-top: 20px; }
+
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 20px auto; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading, .error-screen { text-align: center; padding: 80px 24px; color: var(--text-dim); font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="loading" id="loading">Loading menu…</div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './shared/config.js';
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const app = document.getElementById('app');
+
+const params = new URLSearchParams(window.location.search);
+const tableToken = params.get('table');
+
+let tableRow = null;
+let settings = null;
+let categories = [];
+let items = [];
+let cart = []; // { key, itemId, name, unitPrice, qty, selections: [{group,label,delta}] }
+
+const CART_KEY = tableToken ? `qrforge_cart_${tableToken}` : 'qrforge_cart_unknown';
+
+function loadCart() {
+  try { cart = JSON.parse(sessionStorage.getItem(CART_KEY) || '[]'); } catch (e) { cart = []; }
+}
+function saveCart() {
+  try { sessionStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (e) {}
+}
+
+async function init() {
+  if (!tableToken) {
+    app.innerHTML = `<div class="error-screen">No table code found in this link.<br>Ask staff to rescan your table's QR code.</div>`;
+    return;
+  }
+
+  const [{ data: tableData }, { data: settingsData }, { data: catData }, { data: itemData }] = await Promise.all([
+    supabase.from('tables').select('*').eq('qr_token', tableToken).maybeSingle(),
+    supabase.from('settings').select('*').eq('id', 1).maybeSingle(),
+    supabase.from('categories').select('*').order('sort_order'),
+    supabase.from('menu_items').select('*').eq('is_available', true).order('sort_order')
+  ]);
+
+  if (!tableData) {
+    app.innerHTML = `<div class="error-screen">This table code isn't recognized.<br>Ask staff for help.</div>`;
+    return;
+  }
+
+  tableRow = tableData;
+  settings = settingsData || { restaurant_name: 'Menu', accent_color: '#F2B705' };
+  categories = catData || [];
+  items = itemData || [];
+  loadCart();
+
+  document.documentElement.style.setProperty('--accent', settings.accent_color || '#F2B705');
+  renderMenu();
+}
+
+function renderMenu() {
+  const catButtons = categories.map(c => `<button data-cat="${c.id}">${escapeHtml(c.name)}</button>`).join('');
+  const blocks = categories.map(cat => {
+    const catItems = items.filter(i => i.category_id === cat.id);
+    if (!catItems.length) return '';
+    return `
+      <div class="category-block" id="cat-${cat.id}">
+        <div class="category-title">${escapeHtml(cat.name)}</div>
+        ${catItems.map(renderItemCard).join('')}
+      </div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="topbar">
+      ${settings.logo_url ? `<img src="${settings.logo_url}" alt="">` : ''}
+      <div class="name">${escapeHtml(settings.restaurant_name)}</div>
+      <div class="table-tag">Table ${tableRow.table_number}</div>
+    </div>
+    <div class="cat-nav">${catButtons}</div>
+    <main>${blocks || '<div class="empty">Menu is being set up — check back shortly.</div>'}</main>
+    <div class="cart-bar" id="cart-bar">
+      <button id="view-cart-btn">
+        <span><span class="badge" id="cart-count">0</span>View cart</span>
+        <span id="cart-total">₹0</span>
+      </button>
+    </div>
+    <div class="sheet-overlay" id="overlay"></div>
+  `;
+
+  document.querySelectorAll('.cat-nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(`cat-${btn.dataset.cat}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+  document.getElementById('view-cart-btn').addEventListener('click', openCartSheet);
+  document.querySelectorAll('.add-btn').forEach(btn => {
+    btn.addEventListener('click', () => openItemSheet(btn.dataset.item));
+  });
+
+  updateCartBar();
+}
+
+function renderItemCard(item) {
+  return `
+    <div class="item-card">
+      ${item.image_url ? `<img src="${item.image_url}" alt="">` : ''}
+      <div class="item-info">
+        <div class="item-name">${escapeHtml(item.name)}</div>
+        ${item.description ? `<div class="item-desc">${escapeHtml(item.description)}</div>` : ''}
+        <div class="item-row">
+          <span class="item-price">₹${Number(item.price).toFixed(0)}</span>
+          <button class="add-btn" data-item="${item.id}">Add</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function openItemSheet(itemId) {
+  const item = items.find(i => i.id === itemId);
+  if (!item) return;
+  const groups = item.customizations || [];
+  let selections = {}; // groupIndex -> array of {label, delta}
+  let qty = 1;
+
+  const overlay = document.getElementById('overlay');
+  overlay.classList.add('visible');
+  overlay.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-header">
+        <div class="sheet-title">${escapeHtml(item.name)}</div>
+        <button class="sheet-close" id="close-item">✕</button>
+      </div>
+      ${item.description ? `<div class="item-desc" style="margin-bottom:16px;">${escapeHtml(item.description)}</div>` : ''}
+      <div id="opt-groups"></div>
+      <div class="qty-row">
+        <button id="qty-minus">−</button>
+        <span id="qty-val">1</span>
+        <button id="qty-plus">+</button>
+      </div>
+      <button class="confirm-btn" id="add-to-cart-btn">Add to cart — ₹${Number(item.price).toFixed(0)}</button>
+    </div>`;
+
+  const optGroups = document.getElementById('opt-groups');
+  groups.forEach((group, gIdx) => {
+    selections[gIdx] = [];
+    const div = document.createElement('div');
+    div.className = 'opt-group';
+    const inputType = group.type === 'multi' ? 'checkbox' : 'radio';
+    div.innerHTML = `
+      <div class="opt-group-name">${escapeHtml(group.name)}</div>
+      ${(group.options || []).map((opt, oIdx) => `
+        <label class="opt-choice">
+          <span class="opt-choice-label">${escapeHtml(opt.label)}</span>
+          <span style="display:flex;align-items:center;gap:10px;">
+            <span class="opt-choice-delta">${opt.delta ? (opt.delta > 0 ? '+₹' + opt.delta : '−₹' + Math.abs(opt.delta)) : ''}</span>
+            <input type="${inputType}" name="group-${gIdx}" data-group="${gIdx}" data-opt="${oIdx}">
+          </span>
+        </label>`).join('')}
+    `;
+    optGroups.appendChild(div);
+  });
+
+  function recalcPrice() {
+    let total = Number(item.price);
+    Object.values(selections).flat().forEach(s => total += (s.delta || 0));
+    total *= qty;
+    document.getElementById('add-to-cart-btn').textContent = `Add to cart — ₹${total.toFixed(0)}`;
+  }
+
+  optGroups.querySelectorAll('input').forEach(input => {
+    input.addEventListener('change', () => {
+      const gIdx = input.dataset.group, oIdx = input.dataset.opt;
+      const group = groups[gIdx];
+      const opt = group.options[oIdx];
+      if (group.type === 'multi') {
+        if (input.checked) selections[gIdx].push({ group: group.name, label: opt.label, delta: opt.delta || 0 });
+        else selections[gIdx] = selections[gIdx].filter(s => s.label !== opt.label);
+      } else {
+        selections[gIdx] = [{ group: group.name, label: opt.label, delta: opt.delta || 0 }];
+      }
+      recalcPrice();
+    });
+  });
+
+  document.getElementById('qty-minus').addEventListener('click', () => { if (qty > 1) qty--; document.getElementById('qty-val').textContent = qty; recalcPrice(); });
+  document.getElementById('qty-plus').addEventListener('click', () => { qty++; document.getElementById('qty-val').textContent = qty; recalcPrice(); });
+  document.getElementById('close-item').addEventListener('click', closeSheet);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSheet(); });
+
+  document.getElementById('add-to-cart-btn').addEventListener('click', () => {
+    const flatSelections = Object.values(selections).flat();
+    const unitDelta = flatSelections.reduce((sum, s) => sum + (s.delta || 0), 0);
+    cart.push({
+      key: `${itemId}-${Date.now()}`,
+      itemId,
+      name: item.name,
+      unitPrice: Number(item.price) + unitDelta,
+      qty,
+      selections: flatSelections
+    });
+    saveCart();
+    updateCartBar();
+    closeSheet();
+  });
+}
+
+function openCartSheet() {
+  const overlay = document.getElementById('overlay');
+  overlay.classList.add('visible');
+  renderCartSheet();
+  overlay.onclick = (e) => { if (e.target === overlay) closeSheet(); };
+}
+
+function renderCartSheet() {
+  const overlay = document.getElementById('overlay');
+  const subtotal = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
+
+  overlay.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-header">
+        <div class="sheet-title">Your order</div>
+        <button class="sheet-close" id="close-cart">✕</button>
+      </div>
+      ${cart.length ? cart.map(renderCartItem).join('') : '<div class="empty">Cart is empty</div>'}
+      ${cart.length ? `
+        <textarea class="note-field" id="order-note" placeholder="Notes for the kitchen (optional) — e.g. no onions"></textarea>
+        <div class="totals-row"><span>Subtotal</span><span>₹${subtotal.toFixed(0)}</span></div>
+        <div class="totals-row grand"><span>Total</span><span>₹${subtotal.toFixed(0)}</span></div>
+        <button class="confirm-btn" id="checkout-btn" style="margin-top:14px;">Proceed to payment</button>
+      ` : ''}
+    </div>`;
+
+  document.getElementById('close-cart').addEventListener('click', closeSheet);
+  document.querySelectorAll('.cart-item .plus').forEach(b => b.addEventListener('click', () => changeQty(b.dataset.key, 1)));
+  document.querySelectorAll('.cart-item .minus').forEach(b => b.addEventListener('click', () => changeQty(b.dataset.key, -1)));
+  document.querySelectorAll('.cart-item .remove-btn').forEach(b => b.addEventListener('click', () => removeItem(b.dataset.key)));
+  const checkoutBtn = document.getElementById('checkout-btn');
+  if (checkoutBtn) checkoutBtn.addEventListener('click', () => openPaymentSheet(subtotal));
+}
+
+function renderCartItem(c) {
+  const mods = c.selections.map(s => s.label).join(', ');
+  return `
+    <div class="cart-item">
+      <div>
+        <div class="cart-item-name">${escapeHtml(c.name)}</div>
+        ${mods ? `<div class="cart-item-mods">${escapeHtml(mods)}</div>` : ''}
+        <div class="cart-item-qty">
+          <button class="minus" data-key="${c.key}">−</button>
+          <span>${c.qty}</span>
+          <button class="plus" data-key="${c.key}">+</button>
+        </div>
+        <button class="remove-btn" data-key="${c.key}">Remove</button>
+      </div>
+      <div class="cart-item-price">₹${(c.unitPrice * c.qty).toFixed(0)}</div>
+    </div>`;
+}
+
+function changeQty(key, delta) {
+  const c = cart.find(x => x.key === key);
+  if (!c) return;
+  c.qty += delta;
+  if (c.qty <= 0) cart = cart.filter(x => x.key !== key);
+  saveCart();
+  renderCartSheet();
+  updateCartBar();
+}
+function removeItem(key) {
+  cart = cart.filter(x => x.key !== key);
+  saveCart();
+  renderCartSheet();
+  updateCartBar();
+}
+
+function updateCartBar() {
+  const bar = document.getElementById('cart-bar');
+  const count = cart.reduce((sum, c) => sum + c.qty, 0);
+  const total = cart.reduce((sum, c) => sum + c.unitPrice * c.qty, 0);
+  if (count > 0) {
+    bar.classList.add('visible');
+    document.getElementById('cart-count').textContent = count;
+    document.getElementById('cart-total').textContent = `₹${total.toFixed(0)}`;
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function openPaymentSheet(total) {
+  const overlay = document.getElementById('overlay');
+  overlay.innerHTML = `
+    <div class="sheet">
+      <div class="sheet-header">
+        <div class="sheet-title">Payment</div>
+        <button class="sheet-close" id="close-pay">✕</button>
+      </div>
+      <div class="demo-badge">⚠ Demo checkout — no real payment gateway is connected. No money moves. This screen exists to complete the ordering flow for the prototype.</div>
+      <div class="pay-field">
+        <label>Card number</label>
+        <input type="text" placeholder="4242 4242 4242 4242" maxlength="19" id="pay-card">
+      </div>
+      <div class="pay-row">
+        <div class="pay-field"><label>Expiry</label><input type="text" placeholder="MM/YY" maxlength="5" id="pay-exp"></div>
+        <div class="pay-field"><label>CVV</label><input type="text" placeholder="123" maxlength="3" id="pay-cvv"></div>
+      </div>
+      <button class="confirm-btn" id="pay-btn">Pay ₹${total.toFixed(0)}</button>
+    </div>`;
+  document.getElementById('close-pay').addEventListener('click', closeSheet);
+  document.getElementById('pay-btn').addEventListener('click', () => submitOrder(total));
+}
+
+async function submitOrder(total) {
+  const overlay = document.getElementById('overlay');
+  overlay.querySelector('.sheet').innerHTML = `
+    <div style="text-align:center; padding: 30px 0;">
+      <div class="spinner"></div>
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-dim);">Processing payment (demo)…</div>
+    </div>`;
+
+  const note = document.getElementById('order-note')?.value || '';
+
+  await new Promise(r => setTimeout(r, 1400)); // simulated processing delay
+
+  const { data: order, error: orderErr } = await supabase.from('orders').insert({
+    table_id: tableRow.id,
+    status: 'pending',
+    payment_status: 'paid',
+    subtotal: total,
+    total: total,
+    customer_note: note
+  }).select().single();
+
+  if (orderErr || !order) {
+    overlay.querySelector('.sheet').innerHTML = `<div class="error-screen">Something went wrong placing your order. Please try again or tell staff.</div>`;
+    console.error(orderErr);
+    return;
+  }
+
+  const orderItemsPayload = cart.map(c => ({
+    order_id: order.id,
+    menu_item_id: c.itemId,
+    item_name: c.name,
+    quantity: c.qty,
+    unit_price: c.unitPrice,
+    customizations: c.selections,
+    line_total: c.unitPrice * c.qty
+  }));
+  await supabase.from('order_items').insert(orderItemsPayload);
+
+  cart = [];
+  saveCart();
+  updateCartBar();
+  closeSheet();
+  showOrderStatus(order.id);
+}
+
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('visible');
+}
+
+function showOrderStatus(orderId) {
+  const steps = ['pending', 'preparing', 'ready', 'served'];
+  const labels = { pending: 'Received', preparing: 'Preparing', ready: 'Ready', served: 'Served' };
+
+  function render(status) {
+    const idx = steps.indexOf(status);
+    app.innerHTML = `
+      <div class="status-screen">
+        <div class="status-icon">✓</div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px;">Order placed</div>
+        <div style="color:var(--text-dim); font-size:13px; margin-top:4px;">We'll update this page as your order progresses</div>
+        <div class="status-track">
+          ${steps.map((s, i) => `
+            <div class="status-step ${i <= idx ? 'done' : ''}">
+              <div class="status-dot"></div>
+              <div class="status-step-label">${labels[s]}</div>
+            </div>`).join('')}
+        </div>
+        <div class="order-id">Order #${orderId.slice(0, 8)} · Table ${tableRow.table_number}</div>
+      </div>`;
+  }
+
+  render('pending');
+
+  supabase.channel(`order-${orderId}`)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` }, (payload) => {
+      render(payload.new.status);
+    })
+    .subscribe();
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str ?? '';
+  return div.innerHTML;
+}
+
+init();
+</script>
+</body>
+</html>
